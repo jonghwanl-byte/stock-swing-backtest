@@ -83,6 +83,5 @@ def rank_candidates(features: pd.DataFrame, settings: dict) -> pd.DataFrame:
         column = metric_map[weight_name]
         percentile = candidates.groupby("date")[column].transform(_cross_sectional_percentile)
         candidates["score"] += float(weight) * percentile
-    df["score"] = 0.0
-    df.loc[candidates.index, "score"] = candidates["score"]
+    df["score"] = candidates["score"]
     return df.sort_values(["date", "score"], ascending=[True, False])
