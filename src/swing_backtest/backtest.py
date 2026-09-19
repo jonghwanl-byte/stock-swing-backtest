@@ -12,6 +12,7 @@ class Position:
     entry_price: float
     peak_price: float
     holding_days: int = 0
+    entry_features: dict[str, float | None] | None = None
 
 
 def run_backtest(ranked: pd.DataFrame, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -67,6 +68,7 @@ def run_backtest(ranked: pd.DataFrame, settings: dict) -> tuple[pd.DataFrame, pd
                     "holding_days": pos.holding_days,
                     "return_net": price / pos.entry_price - 1.0 - 2.0 * cost,
                     "exit_reason": reason,
+                    **{f"entry_{name}": value for name, value in (pos.entry_features or {}).items()},
                 })
                 del positions[ticker]
 
@@ -78,7 +80,11 @@ def run_backtest(ranked: pd.DataFrame, settings: dict) -> tuple[pd.DataFrame, pd
                 ].sort_values("score", ascending=False)
                 for ticker, row in candidates.head(capacity).iterrows():
                     price = float(row["close"])
-                    positions[ticker] = Position(ticker, date, price, price)
+                    entry_features = {}
+                    for name in ("score", "mom63", "mom126", "breakout63", "gap", "abnormal_volume", "avg_dollar_volume20"):
+                        value = row.get(name)
+                        entry_features[name] = float(value) if pd.notna(value) else None
+                    positions[ticker] = Position(ticker, date, price, price, entry_features=entry_features)
 
         for ticker in positions:
             if ticker in day.index:
