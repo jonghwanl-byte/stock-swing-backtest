@@ -28,7 +28,8 @@ def test_feature_and_ranking_pipeline():
     }
     ranked = rank_candidates(add_features(pd.concat(frames)), settings)
     assert not ranked.empty
-    assert ranked["score"].between(0, 1).all()
+    assert len(ranked) == len(dates) * 2
+    assert ranked.loc[ranked["eligible"], "score"].between(0, 1).all()
 
 
 def test_missing_column_is_rejected():

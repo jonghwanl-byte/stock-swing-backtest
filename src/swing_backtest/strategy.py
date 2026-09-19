@@ -47,7 +47,8 @@ def rank_candidates(features: pd.DataFrame, settings: dict) -> pd.DataFrame:
         & (df["close"] > df["ma50"])
         & (df["ma50"] > df["ma200"])
     )
-    df = df.loc[eligible].copy()
+    df["eligible"] = eligible
+    candidates = df.loc[eligible].copy()
 
     metric_map = {
         "momentum_63": "mom63",
@@ -56,8 +57,9 @@ def rank_candidates(features: pd.DataFrame, settings: dict) -> pd.DataFrame:
         "gap": "gap",
         "abnormal_volume": "abnormal_volume",
     }
-    df["score"] = 0.0
+    candidates["score"] = 0.0
     for weight_name, column in metric_map.items():
-        percentile = df.groupby("date")[column].transform(_cross_sectional_percentile)
-        df["score"] += float(settings["weights"][weight_name]) * percentile
+        percentile = candidates.groupby("date")[column].transform(_cross_sectional_percentile)
+        candidates["score"] += float(settings["weights"][weight_name]) * percentile
+    df["score"] = candidates["score"]
     return df.sort_values(["date", "score"], ascending=[True, False])

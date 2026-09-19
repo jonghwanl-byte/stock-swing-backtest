@@ -71,7 +71,9 @@ def run_backtest(ranked: pd.DataFrame, settings: dict) -> tuple[pd.DataFrame, pd
         if date.weekday() == int(settings["rebalance_weekday"]):
             capacity = int(settings["max_positions"]) - len(positions)
             if capacity > 0:
-                candidates = day.loc[~day.index.isin(positions)].sort_values("score", ascending=False)
+                candidates = day.loc[
+                    day["eligible"] & ~day.index.isin(positions)
+                ].sort_values("score", ascending=False)
                 for ticker, row in candidates.head(capacity).iterrows():
                     price = float(row["close"])
                     positions[ticker] = Position(ticker, date, price, price)
