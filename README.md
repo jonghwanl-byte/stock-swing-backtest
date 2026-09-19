@@ -19,9 +19,7 @@
 
 ```bash
 python -m pip install -r requirements.txt
-python scripts/build_sp500_universe.py --start 2015-01-01
-python scripts/download_prices.py --start 2015-01-01
-python scripts/run_backtest.py --input data/prices.csv
+python scripts/run_backtest.py --input data/prices.csv --download-report outputs/download_report.json
 ```
 
 입력 CSV 필수 열:
@@ -30,17 +28,7 @@ python scripts/run_backtest.py --input data/prices.csv
 date,ticker,open,high,low,close,volume
 ```
 
-결과는 `outputs/trades.csv`, `outputs/equity.csv`, `outputs/summary.json`에 저장됩니다.
-
-### 생존편향 통제
-
-`build_sp500_universe.py`는 현재 구성 종목과 과거 편입·편출 이력을 이용해
-`ticker,start_date,end_date` 형태의 구간을 역산합니다. 가격 행마다 당시 실제
-지수 편입 여부를 표시하고, 편출일 이후에는 신규 진입을 금지합니다.
-
-무료 Yahoo 데이터에 남아 있지 않은 상장폐지 종목은 다운로드되지 않을 수 있습니다.
-`outputs/download_report.json`의 누락 종목을 반드시 확인해야 하며, 기관 수준
-검증에는 CRSP·Norgate 같은 point-in-time 유료 데이터가 필요합니다.
+결과는 `outputs/trades.csv`, `outputs/equity.csv`, `outputs/annual_metrics.csv`, `outputs/summary.json`에 저장됩니다. `summary.json`에는 CAGR, 연환산 변동성, 샤프, 최대낙폭, 승률이 포함됩니다. `--benchmark`를 지정하면 벤치마크 누적수익률과 초과수익도 함께 계산합니다.
 
 ## 검증
 
