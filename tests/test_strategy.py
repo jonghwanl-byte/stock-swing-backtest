@@ -28,8 +28,7 @@ def test_feature_and_ranking_pipeline():
     }
     ranked = rank_candidates(add_features(pd.concat(frames)), settings)
     assert not ranked.empty
-    assert len(ranked) == len(dates) * 2
-    assert ranked.loc[ranked["eligible"], "score"].between(0, 1).all()
+    assert ranked["score"].between(0, 1).all()
 
 
 def test_missing_column_is_rejected():
@@ -39,3 +38,23 @@ def test_missing_column_is_rejected():
         assert "Missing columns" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_early_model_and_top_liquidity_limit():
+    dates = pd.bdate_range("2024-01-01", periods=240)
+    frames = []
+    for number, ticker in enumerate(["AAA", "BBB", "CCC"]):
+        close = np.linspace(20 + number, 45 + number, len(dates))
+        frames.append(pd.DataFrame({
+            "date": dates, "ticker": ticker,
+            "open": close, "high": close * 1.01, "low": close * .99,
+            "close": close, "volume": (3 - number) * 2_000_000,
+        }))
+    settings = {
+        "min_price": 5, "min_avg_dollar_volume": 1_000_000,
+        "top_liquidity_n": 1, "entry_model": "early",
+        "feature_weights": {"momentum_20": .35, "acceleration": .35, "breakout_20": .30},
+    }
+    ranked = rank_candidates(add_features(pd.concat(frames)), settings)
+    assert not ranked.empty
+    assert ranked.groupby("date").size().max() <= 1

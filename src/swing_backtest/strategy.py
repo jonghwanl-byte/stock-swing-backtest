@@ -24,10 +24,16 @@ def add_features(prices: pd.DataFrame) -> pd.DataFrame:
 
     df["ma50"] = g["close"].transform(lambda x: x.rolling(50, min_periods=50).mean())
     df["ma200"] = g["close"].transform(lambda x: x.rolling(200, min_periods=200).mean())
+    df["ma20"] = g["close"].transform(lambda x: x.rolling(20, min_periods=20).mean())
     df["mom63"] = g["close"].pct_change(63)
     df["mom126"] = g["close"].pct_change(126)
+    df["mom20"] = g["close"].pct_change(20)
     df["high63"] = g["high"].transform(lambda x: x.rolling(63, min_periods=63).max())
     df["breakout63"] = df["close"] / df["high63"] - 1.0
+    df["high20"] = g["high"].transform(lambda x: x.rolling(20, min_periods=20).max())
+    df["breakout20"] = df["close"] / df["high20"] - 1.0
+    df["ma50_slope"] = g["ma50"].pct_change(20)
+    df["acceleration"] = df["mom20"] - df["mom63"] * (20.0 / 63.0)
     previous_close = g["close"].shift(1)
     df["gap"] = df["open"] / previous_close - 1.0
     df["avg_volume20"] = g["volume"].transform(lambda x: x.rolling(20, min_periods=20).mean())
@@ -47,26 +53,35 @@ def add_features(prices: pd.DataFrame) -> pd.DataFrame:
 def rank_candidates(features: pd.DataFrame, settings: dict) -> pd.DataFrame:
     """Filter and rank each date cross-section using only objective inputs."""
     df = features.copy()
-    eligible = (
-        df["in_universe"]
-        & (df["close"] >= settings["min_price"])
-        & (df["avg_dollar_volume20"] >= settings["min_avg_dollar_volume"])
-        & (df["close"] > df["ma50"])
-        & (df["ma50"] > df["ma200"])
-    )
+    liquidity_rank = df.groupby("date")["avg_dollar_volume20"].rank(method="first", ascending=False)
+    top_n = settings.get("top_liquidity_n")
+    liquidity_ok = df["avg_dollar_volume20"] >= settings["min_avg_dollar_volume"]
+    if top_n is not None:
+        liquidity_ok &= liquidity_rank <= int(top_n)
+    base = df["in_universe"] & (df["close"] >= settings["min_price"]) & liquidity_ok
+    model = settings.get("entry_model", "late_trend")
+    if model == "early":
+        eligible = base & (df["close"] > df["ma200"]) & (df["ma50_slope"] > 0) & (df["close"] > df["ma20"]) & (df["mom20"] > 0)
+    else:
+        eligible = base & (df["close"] > df["ma50"]) & (df["ma50"] > df["ma200"])
     df["eligible"] = eligible
     candidates = df.loc[eligible].copy()
 
     metric_map = {
         "momentum_63": "mom63",
         "momentum_126": "mom126",
+        "momentum_20": "mom20",
         "breakout_63": "breakout63",
+        "breakout_20": "breakout20",
+        "acceleration": "acceleration",
         "gap": "gap",
         "abnormal_volume": "abnormal_volume",
     }
     candidates["score"] = 0.0
-    for weight_name, column in metric_map.items():
+    weights = settings.get("feature_weights", settings.get("weights", {}))
+    for weight_name, weight in weights.items():
+        column = metric_map[weight_name]
         percentile = candidates.groupby("date")[column].transform(_cross_sectional_percentile)
-        candidates["score"] += float(settings["weights"][weight_name]) * percentile
+        candidates["score"] += float(weight) * percentile
     df["score"] = candidates["score"]
     return df.sort_values(["date", "score"], ascending=[True, False])

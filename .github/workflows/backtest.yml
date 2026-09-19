@@ -46,6 +46,8 @@ jobs:
         run: python scripts/download_prices.py --start 2015-01-01
       - name: Run backtest
         run: python scripts/run_backtest.py --input data/prices.csv --download-report outputs/download_report.json
+      - name: Compare entry models on top liquid stocks
+        run: python scripts/compare_models.py --input data/prices.csv --output outputs/model_comparison.csv
       - uses: actions/upload-artifact@v4
         with:
           name: swing-backtest-results
