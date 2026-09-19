@@ -47,7 +47,9 @@ def run_backtest(ranked: pd.DataFrame, settings: dict) -> tuple[pd.DataFrame, pd
             pos.holding_days += 1
             pos.peak_price = max(pos.peak_price, price)
             reason = None
-            if price <= pos.entry_price * (1.0 - settings["stop_loss"]):
+            if bool(row.get("universe_exit", False)) or not bool(row.get("in_universe", True)):
+                reason = "universe_exit"
+            elif price <= pos.entry_price * (1.0 - settings["stop_loss"]):
                 reason = "stop_loss"
             elif price <= pos.peak_price * (1.0 - settings["trailing_stop"]):
                 reason = "trailing_stop"

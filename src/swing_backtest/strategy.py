@@ -35,6 +35,12 @@ def add_features(prices: pd.DataFrame) -> pd.DataFrame:
     df["avg_dollar_volume20"] = (df["close"] * df["volume"]).groupby(df["ticker"]).transform(
         lambda x: x.rolling(20, min_periods=20).mean()
     )
+    if "in_universe" not in df:
+        df["in_universe"] = True
+    df["in_universe"] = df["in_universe"].fillna(False).astype(bool)
+    if "universe_exit" not in df:
+        df["universe_exit"] = False
+    df["universe_exit"] = df["universe_exit"].fillna(False).astype(bool)
     return df
 
 
@@ -42,7 +48,8 @@ def rank_candidates(features: pd.DataFrame, settings: dict) -> pd.DataFrame:
     """Filter and rank each date cross-section using only objective inputs."""
     df = features.copy()
     eligible = (
-        (df["close"] >= settings["min_price"])
+        df["in_universe"]
+        & (df["close"] >= settings["min_price"])
         & (df["avg_dollar_volume20"] >= settings["min_avg_dollar_volume"])
         & (df["close"] > df["ma50"])
         & (df["ma50"] > df["ma200"])

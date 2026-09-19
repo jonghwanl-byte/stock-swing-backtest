@@ -32,17 +32,16 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Run when a price file is present
-        shell: bash
-        run: |
-          if [ -f data/prices.csv ]; then
-            python scripts/run_backtest.py --input data/prices.csv
-          else
-            echo "data/prices.csv not found; tests completed and backtest skipped."
-          fi
+      - name: Build point-in-time S&P 500 universe
+        run: python scripts/build_sp500_universe.py --start 2015-01-01
+      - name: Download adjusted daily prices
+        run: python scripts/download_prices.py --start 2015-01-01
+      - name: Run backtest
+        run: python scripts/run_backtest.py --input data/prices.csv
       - uses: actions/upload-artifact@v4
-        if: ${{ hashFiles('outputs/**') != '' }}
         with:
           name: swing-backtest-results
-          path: outputs/
+          path: |
+            outputs/
+            data/sp500_membership.csv
           retention-days: 30
