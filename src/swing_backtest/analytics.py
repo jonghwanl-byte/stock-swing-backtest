@@ -52,11 +52,20 @@ def performance_report(
     benchmark: pd.DataFrame | None = None,
 ) -> tuple[dict, pd.DataFrame]:
     frame = _clean_equity(equity)
+    nonzero = frame.index[frame["daily_return"].ne(0)]
+    if len(nonzero):
+        first = nonzero[0]
+        first_pos = frame.index.get_loc(first)
+        base = float(frame.iloc[first_pos - 1]["equity"]) if first_pos else 1.0
+        frame = frame.loc[first:].copy()
+        frame["equity"] = frame["equity"] / base
     summary = _period_stats(frame)
     annual_rows: list[dict] = []
     if not frame.empty:
         for year, group in frame.groupby(frame["date"].dt.year):
-            annual_rows.append({"year": int(year), **_period_stats(group)})
+            annual_group = group.copy()
+            annual_group["equity"] = (1.0 + annual_group["daily_return"]).cumprod()
+            annual_rows.append({"year": int(year), **_period_stats(annual_group)})
     annual = pd.DataFrame(annual_rows)
     if benchmark is not None and not benchmark.empty:
         if not {"date", "close"}.issubset(benchmark.columns):
