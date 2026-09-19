@@ -50,6 +50,7 @@ def main() -> None:
     parser.add_argument("--input", required=True)
     parser.add_argument("--config", default="config/strategy.yml")
     parser.add_argument("--output", default="outputs/model_comparison.csv")
+    parser.add_argument("--oos-start", default="2023-01-01")
     args = parser.parse_args()
 
     with open(args.config, encoding="utf-8") as handle:
@@ -58,15 +59,20 @@ def main() -> None:
 
     rows: list[dict] = []
     for name, override in VARIANTS.items():
+      for top_n in (100, 200, 300, 400):
         settings = copy.deepcopy(base)
         settings.update(override)
-        settings["top_liquidity_n"] = 200
+        settings["top_liquidity_n"] = top_n
         ranked = rank_candidates(features, settings)
         trades, equity = run_backtest(ranked, settings)
         summary, _ = performance_report(equity)
+        oos_prices = features.loc[features["date"] >= pd.Timestamp(args.oos_start)]
+        oos_ranked = rank_candidates(oos_prices, settings)
+        oos_trades, oos_equity = run_backtest(oos_ranked, settings)
+        oos_summary, _ = performance_report(oos_equity)
         rows.append({
             "model": name,
-            "top_liquidity_n": 200,
+            "top_liquidity_n": top_n,
             "entry_model": settings["entry_model"],
             "trade_count": int(len(trades)),
             "win_rate": float((trades["return_net"] > 0).mean()) if len(trades) else 0.0,
@@ -77,11 +83,16 @@ def main() -> None:
             "ending_equity": summary["ending_equity"],
             "start_date": summary["start_date"],
             "end_date": summary["end_date"],
+            "oos_start": args.oos_start,
+            "oos_cagr": oos_summary["cagr"],
+            "oos_sharpe_0rf": oos_summary["sharpe_0rf"],
+            "oos_max_drawdown": oos_summary["max_drawdown"],
+            "oos_trade_count": int(len(oos_trades)),
         })
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    result = pd.DataFrame(rows).sort_values("sharpe_0rf", ascending=False)
+    result = pd.DataFrame(rows).sort_values(["oos_sharpe_0rf", "sharpe_0rf"], ascending=False)
     result.to_csv(output, index=False)
     print(result.to_string(index=False))
 
