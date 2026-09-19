@@ -1,0 +1,41 @@
+name: Weekly swing backtest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 22 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+        env:
+          PYTHONPATH: src
+
+  backtest:
+    if: ${{ hashFiles('data/prices.csv') != '' }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python scripts/run_backtest.py --input data/prices.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swing-backtest-results
+          path: outputs/
+          retention-days: 30

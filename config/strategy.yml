@@ -1,0 +1,15 @@
+strategy:
+  max_positions: 10
+  max_holding_days: 63
+  rebalance_weekday: 4
+  min_price: 5.0
+  min_avg_dollar_volume: 20000000
+  stop_loss: 0.10
+  trailing_stop: 0.12
+  transaction_cost_bps: 10
+  weights:
+    momentum_63: 0.30
+    momentum_126: 0.20
+    breakout_63: 0.20
+    gap: 0.15
+    abnormal_volume: 0.15
