@@ -13,7 +13,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from swing_backtest.universe import normalize_ticker, reconstruct_intervals
 
-URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+CURRENT_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+HISTORY_URL = "https://en.wikipedia.org/wiki/Historical_components_of_the_S%26P_500"
 
 
 def _flatten(column: object) -> str:
@@ -22,17 +23,25 @@ def _flatten(column: object) -> str:
     return str(column).strip()
 
 
-def fetch_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
+def _read_tables(url: str) -> list[pd.DataFrame]:
     response = requests.get(
-        URL,
+        url,
         headers={"User-Agent": "stock-swing-backtest/1.0 (research project)"},
         timeout=30,
     )
     response.raise_for_status()
-    tables = pd.read_html(StringIO(response.text))
-    current = next(table for table in tables if "Symbol" in [_flatten(c) for c in table.columns])
+    return pd.read_html(StringIO(response.text))
+
+
+def fetch_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
+    current_tables = _read_tables(CURRENT_URL)
+    history_tables = _read_tables(HISTORY_URL)
+    current = next(
+        table for table in current_tables
+        if any(_flatten(c) == "Symbol" for c in table.columns)
+    )
     changes = next(
-        table for table in tables
+        table for table in history_tables
         if any("Added" in _flatten(c) for c in table.columns)
         and any("Removed" in _flatten(c) for c in table.columns)
     )
@@ -49,7 +58,7 @@ def main() -> None:
     current, raw_changes = fetch_tables()
     symbol_column = next(c for c in current.columns if _flatten(c) == "Symbol")
     current_tickers = [normalize_ticker(value) for value in current[symbol_column]]
-    date_column = next(c for c in raw_changes.columns if c == "Date")
+    date_column = next(c for c in raw_changes.columns if "Date" in c)
     added_column = next(c for c in raw_changes.columns if "Added" in c and "Ticker" in c)
     removed_column = next(c for c in raw_changes.columns if "Removed" in c and "Ticker" in c)
     changes = raw_changes.rename(columns={
