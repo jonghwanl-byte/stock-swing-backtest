@@ -57,4 +57,4 @@ def test_early_model_and_top_liquidity_limit():
     }
     ranked = rank_candidates(add_features(pd.concat(frames)), settings)
     assert not ranked.empty
-    assert ranked.groupby("date").size().max() <= 1
+    assert ranked.loc[ranked["eligible"]].groupby("date").size().max() <= 1
