@@ -2,6 +2,10 @@ name: Weekly swing backtest
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "20 22 * * 0"
 
@@ -23,6 +27,7 @@ jobs:
           PYTHONPATH: src
 
   backtest:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     steps:
